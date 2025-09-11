@@ -2,74 +2,58 @@ package org.example.iw_authentication_service.client;
 
 import lombok.RequiredArgsConstructor;
 import org.example.iw_authentication_service.dto.RegisterRequest;
+import org.example.iw_authentication_service.exeption.KeycloakException;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+
 import java.util.*;
 @Component
 @RequiredArgsConstructor
 public class KeycloakClient {
 
-    @Value("${keycloak.server-url}")
-    private String keycloakUrl;
+    private final Keycloak keycloak;
 
     @Value("${keycloak.realm}")
     private String realm;
+    public void createUser(RegisterRequest registerRequest, Long userId) {
+        UserRepresentation user = new UserRepresentation();
+        user.setUsername(registerRequest.getEmail()); // email = username
+        user.setEmail(registerRequest.getEmail());
+        user.setEnabled(true);
 
-    @Value("${keycloak.client-id}")
-    private String clientId;
+        user.setAttributes(Map.of("userServiceId", List.of(String.valueOf(userId))));
 
-    @Value("${keycloak.client-secret}")
-    private String clientSecret;
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(registerRequest.getPassword());
+        credential.setTemporary(false);
+        user.setCredentials(Collections.singletonList(credential));
 
-    private final RestTemplate restTemplate;
-
-    public void createUser(RegisterRequest registerRequest) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(getAdminToken());
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("email", registerRequest.getEmail());
-        payload.put("username", registerRequest.getEmail());
-        payload.put("enabled", true);
-        payload.put("credentials", List.of(Map.of(
-                "type", "password",
-                "value", registerRequest.getPassword(),
-                "temporary", false
-        )));
-
-        restTemplate.exchange(
-                keycloakUrl + "/admin/realms/" + realm + "/users",
-                HttpMethod.POST,
-                new HttpEntity<>(payload, headers),
-                Void.class
-        );
+        keycloak.realm(realm).users().create(user);
     }
 
+    public Long deleteUser(String email) {
+        List<UserRepresentation> users = keycloak.realm(realm).users().search(email, true);
+        if (users.isEmpty()) {
+            throw new KeycloakException("User with email " + email + " not found");
+        }
 
-    private String getAdminToken() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        UserRepresentation user = users.get(0);
 
-        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        formData.add("grant_type", "client_credentials");
-        formData.add("client_id", clientId);
-        formData.add("client_secret", clientSecret);
+        Long userServiceId = null;
+        if (user.getAttributes() != null && user.getAttributes().containsKey("userServiceId")) {
+            List<String> ids = user.getAttributes().get("userServiceId");
+            if (ids != null && !ids.isEmpty()) {
+                userServiceId = Long.valueOf(ids.get(0));
+            }
+        }
 
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(formData, headers);
+        keycloak.realm(realm).users().get(user.getId()).remove();
 
-        ResponseEntity<Map> response = restTemplate.postForEntity(
-                keycloakUrl + "/realms/" + realm + "/protocol/openid-connect/token",
-                request,
-                Map.class
-        );
-
-        return (String) response.getBody().get("access_token");
-
+        return userServiceId;
     }
 
 }

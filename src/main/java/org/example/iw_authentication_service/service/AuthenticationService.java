@@ -21,27 +21,49 @@ public class AuthenticationService {
     private final UserMapper userMapper;
 
     public RegisterResponse register(RegisterRequest request) {
-        RegisterResponse response = userServiceClient.createUser(userMapper.toCreateUserRequest(request));
-        Long UserId = response.getId();
-        //TODO: synchronize user in keycloak and UserService
+        Long UserId;
         try {
-            keycloakClient.createUser(request);
+            RegisterResponse response = userServiceClient.createUser(request);
+            UserId = response.getId();
         } catch (Exception e) {
-
+            throw new UserServiceException(
+                    "Failed to create user in User Service (status " +  e.getMessage() + ")"
+            );
+        }
+        try {
+            keycloakClient.createUser(request,UserId);
+        } catch (Exception e) {
             try {
                 userServiceClient.deleteUser(UserId);
-            } catch (UserServiceException ex) {
-                throw new KeycloakException(
-                        "Failed to create user in Keycloak (" + e.getMessage()+
-                                ") and failed to rollback user creation in UserService: " + ex.getMessage()
+            } catch (Exception ex) {
+                throw new UserServiceException(
+                        "Failed to rollback user creation in User Service ( " +  ex.getMessage() +
+                                ") after Keycloak failure (" +  e.getMessage() + ")"
                 );
             }
             throw new KeycloakException(
-                    "Failed to create user in Keycloak (status " +  e.getMessage() + ")"
+                    "Failed to create user in Keycloak (status " +  e.getMessage() + "). Rolled back successfully."
             );
         }
 
         return userMapper.toRegisterResponse(request, UserId);
     }
 
+    public void delete(String email) {
+        Long UserServiceId;
+        try {
+            UserServiceId = keycloakClient.deleteUser(email);
+        } catch (Exception e) {
+            throw new KeycloakException(
+                    "Failed to delete user in Keycloak (status " + e.getMessage() + ")."
+            );
+        }
+        try{
+            userServiceClient.deleteUser(UserServiceId);
+        }catch (Exception e){
+            throw new UserServiceException(
+                    "Failed to delete user in UserService (status " +  e.getMessage() + ")."
+            );
+        }
+    }
 }

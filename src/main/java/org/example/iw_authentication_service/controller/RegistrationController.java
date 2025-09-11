@@ -1,5 +1,6 @@
 package org.example.iw_authentication_service.controller;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.example.iw_authentication_service.dto.RegisterRequest;
 import org.example.iw_authentication_service.dto.RegisterResponse;
@@ -19,4 +20,8 @@ public class RegistrationController {
          return authenticationService.register(request);
     }
 
+    @DeleteMapping
+    public void deleteUser(@RequestParam @NotBlank String email) {
+        authenticationService.delete(email);
+    }
 }
