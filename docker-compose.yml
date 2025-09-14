@@ -1,0 +1,24 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: authservice
+    ports:
+      - "8083:8080"
+    environment:
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+
+
+
+    networks:
+      - iw_authenticationservice_keycloak_net
+networks:
+  iw_authenticationservice_keycloak_net :
+    external: true
+
