@@ -1,11 +1,6 @@
 spring:
   application:
     name: IW_Authentication_Service
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI}
 
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL}

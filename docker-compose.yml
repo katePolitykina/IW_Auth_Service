@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: authservice
     ports:
-      - "8083:8080"
+      - "8083:8083"
     environment:
       USER_SERVICE_URL: ${USER_SERVICE_URL}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
@@ -21,4 +21,5 @@ services:
 networks:
   iw_authenticationservice_keycloak_net :
     external: true
+
 
